@@ -23,24 +23,24 @@ def search_stocks(query):
     try:
         response = requests.get(base_url, params=search_params)
         data = response.json()
-        
-        # Check if 'bestMatches' exists in the response
         if 'bestMatches' in data:
-            results = []
-            for match in data['bestMatches']:
-                results.append({
+            results = [
+                {
                     'symbol': match['1. symbol'],
                     'name': match['2. name'],
                     'type': match['3. type'],
-                    'region': match['4. region']
-                })
+                    'region': match['4. region'],
+                }
+                for match in data['bestMatches']
+            ]
             return results
         else:
+            print(f"No bestMatches in response for query: {query}", flush=True)
             return {"error": "No stocks found matching the query"}
-    
     except Exception as e:
-        print(f"Error in stock search: {e}")
+        print(f"Error in stock search: {e}", flush=True)
         return {"error": "An unexpected error occurred"}
+
 
 def get_stock_quote(symbol):
     """
@@ -262,16 +262,16 @@ def get_monthly_stock_data(symbol):
 #         return jsonify({"error": "An unexpected error occurred"}), 500
 def get_daily_stock_data(symbol):
     """
-    Retrieve daily stock data (past 3 months) using Alpha Vantage API
+    Retrieve comprehensive daily stock data for a longer duration
     """
     base_url = 'https://www.alphavantage.co/query'
     
     try:
-        # 3. Get Daily Time Series
+        # Use 'full' output size to get more historical data
         daily_params = {
             'function': 'TIME_SERIES_DAILY',
             'symbol': symbol,
-            'outputsize': 'compact',  # This will retrieve data for the past 3 months
+            'outputsize': 'full',  # This will retrieve much more historical data
             'apikey': ALPHA_VANTAGE_API_KEY
         }
         daily_response = requests.get(base_url, params=daily_params).json()
@@ -279,17 +279,21 @@ def get_daily_stock_data(symbol):
         # Process Daily Data
         if 'Time Series (Daily)' in daily_response:
             daily_data = daily_response['Time Series (Daily)']
-            return [
-                {
-                    'date': date,
-                    'open': data.get('1. open', ''),
-                    'high': data.get('2. high', ''),
-                    'low': data.get('3. low', ''),
-                    'close': data.get('4. close', ''),
-                    'volume': data.get('5. volume', '')
-                }
-                for date, data in daily_data.items()
-            ]
+            # Sort data chronologically and limit to last 365 days
+            sorted_data = sorted(
+                [
+                    {
+                        'date': date,
+                        'close': float(data.get('4. close', 0)),
+                        'volume': int(data.get('5. volume', 0))
+                    }
+                    for date, data in daily_data.items()
+                ],
+                key=lambda x: x['date'],
+                reverse=False
+            )
+            
+            return sorted_data[-365:]  # Last 365 days of data
         else:
             return {"error": "Could not retrieve daily data"}
     

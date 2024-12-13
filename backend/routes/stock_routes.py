@@ -1,78 +1,31 @@
 from flask import Blueprint, jsonify, request
 import requests
-import os
+from datetime import datetime, timedelta
 
 stock_bp = Blueprint('stock', __name__)
 
-# Alpha Vantage Configuration
-ALPHA_VANTAGE_API_KEY = 'NRNB1PVWVWZOAYRU'  # Replace with your actual API key
+# Financial Modeling Prep API Configuration
+FMP_API_KEY = 'cRDdT2E7PbKeYPsVST8kmnUBJwof2sTa'
+BASE_URL = 'https://financialmodelingprep.com/api'
 
 def search_stocks(query):
-    """
-    Search stocks using Alpha Vantage API
-    """
-    base_url = 'https://www.alphavantage.co/query'
-    
-    # Search for symbol
-    search_params = {
-        'function': 'SYMBOL_SEARCH',
-        'keywords': query,
-        'apikey': ALPHA_VANTAGE_API_KEY
-    }
-    
     try:
-        response = requests.get(base_url, params=search_params)
+        search_url = f"{BASE_URL}/v3/search-ticker"
+        params = {
+            'query': query,
+            'limit': 10,
+            'apikey': FMP_API_KEY
+        }
+        
+        response = requests.get(search_url, params=params)
+        response.raise_for_status()
         data = response.json()
         
-        # Check if 'bestMatches' exists in the response
-        if 'bestMatches' in data:
-            results = []
-            for match in data['bestMatches']:
-                results.append({
-                    'symbol': match['1. symbol'],
-                    'name': match['2. name'],
-                    'type': match['3. type'],
-                    'region': match['4. region']
-                })
-            return results
-        else:
-            return {"error": "No stocks found matching the query"}
+        return data if data else []
     
     except Exception as e:
         print(f"Error in stock search: {e}")
-        return {"error": "An unexpected error occurred"}
-
-def get_stock_quote(symbol):
-    """
-    Get stock quote details
-    """
-    base_url = 'https://www.alphavantage.co/query'
-    
-    quote_params = {
-        'function': 'GLOBAL_QUOTE',
-        'symbol': symbol,
-        'apikey': ALPHA_VANTAGE_API_KEY
-    }
-    
-    try:
-        response = requests.get(base_url, params=quote_params)
-        data = response.json()
-        
-        # Check if quote data exists
-        if 'Global Quote' in data and data['Global Quote']:
-            quote = data['Global Quote']
-            return {
-                'symbol': quote['01. symbol'],
-                'price': quote['05. price'],
-                'change': quote['09. change'],
-                'change_percent': quote['10. change percent']
-            }
-        else:
-            return {"error": "Could not retrieve stock quote"}
-    
-    except Exception as e:
-        print(f"Error in stock quote retrieval: {e}")
-        return {"error": "An unexpected error occurred"}
+        raise
 
 @stock_bp.route('/search', methods=['GET'])
 def search_stocks_route():
@@ -83,10 +36,6 @@ def search_stocks_route():
     
     try:
         search_results = search_stocks(query)
-        
-        if isinstance(search_results, dict) and 'error' in search_results:
-            return jsonify(search_results), 404
-        
         return jsonify(search_results)
     
     except requests.RequestException as e:
@@ -96,128 +45,107 @@ def search_stocks_route():
         print(f"Unexpected error: {e}")
         return jsonify({"error": "An unexpected error occurred"}), 500
 
-@stock_bp.route('/quote/<symbol>', methods=['GET'])
-def stock_quote_route(symbol):
+def get_stock_details(symbol):
     try:
-        quote_results = get_stock_quote(symbol)
-        
-        if isinstance(quote_results, dict) and 'error' in quote_results:
-            return jsonify(quote_results), 404
-        
-        return jsonify(quote_results)
-    
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-        return jsonify({"error": "An unexpected error occurred"}), 500
+        # Initialize default response structure with safe defaults
+        stock_details = {
+            'current_quote': {
+                'price': 0.0,
+                'change': 0.0,
+                'change_percent': 0.0,
+            },
+            'profile': {
+                'name': 'Unknown',
+                'symbol': symbol,
+                'industry': 'Unknown',
+                'sector': 'Unknown',
+                'country': 'Unknown',
+                'website': '#',
+            },
+            'historical_prices': [],
+            'news': []
+        }
 
-def get_comprehensive_stock_details(symbol):
-    """
-    Retrieve comprehensive stock details using multiple Alpha Vantage endpoints
-    """
-    base_url = 'https://www.alphavantage.co/query'
-    
-    # Prepare multiple API calls
-    try:
-        # 1. Get Current Quote
-        quote_params = {
-            'function': 'GLOBAL_QUOTE',
-            'symbol': symbol,
-            'apikey': ALPHA_VANTAGE_API_KEY
-        }
-        quote_response = requests.get(base_url, params=quote_params).json()
-        
-        # 2. Get Monthly Time Series (for historical price trends)
-        monthly_params = {
-            'function': 'TIME_SERIES_MONTHLY_ADJUSTED',
-            'symbol': symbol,
-            'apikey': ALPHA_VANTAGE_API_KEY
-        }
-        monthly_response = requests.get(base_url, params=monthly_params).json()
-        
-        # 3. Get News Sentiment
-        news_params = {
-            'function': 'NEWS_SENTIMENT',
+        # Fetch profile data
+        profile_url = f"{BASE_URL}/v3/profile/{symbol}"
+        profile_response = requests.get(profile_url, params={'apikey': FMP_API_KEY})
+        profile_data = profile_response.json()
+
+        if profile_data and isinstance(profile_data, list) and len(profile_data) > 0:
+            profile = profile_data[0]
+            stock_details['profile'].update({
+                'name': profile.get('companyName', 'Unknown'),
+                'industry': profile.get('industry', 'Unknown'),
+                'sector': profile.get('sector', 'Unknown'),
+                'country': profile.get('country', 'Unknown'),
+                'website': profile.get('website', '#'),
+            })
+
+        # Fetch quote data
+        quote_url = f"{BASE_URL}/v3/quote/{symbol}"
+        quote_response = requests.get(quote_url, params={'apikey': FMP_API_KEY})
+        quote_data = quote_response.json()
+
+        if quote_data and isinstance(quote_data, list) and len(quote_data) > 0:
+            quote = quote_data[0]
+            stock_details['current_quote'].update({
+                'price': float(quote.get('price', 0.0)),
+                'change': float(quote.get('change', 0.0)),
+                'change_percent': float(quote.get('changesPercentage', 0.0)),
+            })
+
+        # Fetch historical data
+        historical_url = f"{BASE_URL}/v3/historical-price-full/{symbol}"
+        historical_response = requests.get(historical_url, params={'apikey': FMP_API_KEY})
+        historical_data = historical_response.json()
+
+        if historical_data and 'historical' in historical_data:
+            stock_details['historical_prices'] = [
+                {
+                    'date': entry.get('date', ''),
+                    'close': float(entry.get('close', 0.0))
+                }
+                for entry in historical_data['historical'][:30]  # Last 30 days
+                if entry.get('date') and entry.get('close')
+            ]
+
+        # Fetch news data
+        news_url = f"{BASE_URL}/v3/stock_news"
+        news_response = requests.get(news_url, params={
             'tickers': symbol,
             'limit': 5,
-            'apikey': ALPHA_VANTAGE_API_KEY
-        }
-        news_response = requests.get(base_url, params=news_params).json()
-        
-        # 4. Get Insider Transactions
-        insider_params = {
-            'function': 'INSIDER_TRANSACTIONS',
-            'symbol': symbol,
-            'apikey': ALPHA_VANTAGE_API_KEY
-        }
-        insider_response = requests.get(base_url, params=insider_params).json()
-        
-        # Compile comprehensive stock details
-        stock_details = {
-            # Current Quote Information
-            'current_quote': {},
-            'historical_prices': {},
-            'news': [],
-            'insider_transactions': []
-        }
-        
-        # Process Current Quote
-        if 'Global Quote' in quote_response and quote_response['Global Quote']:
-            quote = quote_response['Global Quote']
-            stock_details['current_quote'] = {
-                'symbol': quote.get('01. symbol', ''),
-                'price': quote.get('05. price', ''),
-                'change': quote.get('09. change', ''),
-                'change_percent': quote.get('10. change percent', ''),
-                'latest_trading_day': quote.get('07. latest trading day', ''),
-                'previous_close': quote.get('08. previous close', '')
-            }
-        
-        # Process Historical Prices
-        if 'Monthly Adjusted Time Series' in monthly_response:
-            monthly_data = monthly_response['Monthly Adjusted Time Series']
-            historical_prices = []
-            for date, prices in list(monthly_data.items())[:12]:  # Last 12 months
-                historical_prices.append({
-                    'date': date,
-                    'open': prices.get('1. open', ''),
-                    'high': prices.get('2. high', ''),
-                    'low': prices.get('3. low', ''),
-                    'close': prices.get('4. close', ''),
-                    'volume': prices.get('6. volume', '')
-                })
-            stock_details['historical_prices'] = historical_prices
-        
-        # Process News Sentiment
-        if 'feed' in news_response:
+            'apikey': FMP_API_KEY
+        })
+        news_data = news_response.json()
+
+        if news_data and isinstance(news_data, list):
             stock_details['news'] = [
                 {
                     'title': article.get('title', ''),
-                    'url': article.get('url', ''),
-                    'published_at': article.get('time_published', ''),
-                    'summary': article.get('summary', '')
-                } for article in news_response['feed'][:5]
+                    'publisher': article.get('site', ''),
+                    'link': article.get('url', ''),
+                    'published_at': article.get('publishedDate', '')
+                }
+                for article in news_data[:5]
             ]
-        
-        # Process Insider Transactions
-        if 'insider_transactions' in insider_response:
-            stock_details['insider_transactions'] = insider_response['insider_transactions'][:5]
-        
+
         return stock_details
-    
+
     except Exception as e:
-        print(f"Comprehensive stock details error: {e}")
-        return {"error": f"Could not retrieve comprehensive details: {str(e)}"}
+        print(f"Error fetching stock details: {e}")
+        return None
 
 @stock_bp.route('/details/<symbol>', methods=['GET'])
 def stock_details_route(symbol):
+    if not symbol:
+        return jsonify({"error": "Symbol is required"}), 400
+
     try:
-        details = get_comprehensive_stock_details(symbol)
-        
-        if isinstance(details, dict) and 'error' in details:
-            return jsonify(details), 404
-        
+        details = get_stock_details(symbol)
+        if details is None:
+            return jsonify({"error": "Could not retrieve stock details"}), 404
         return jsonify(details)
-    
+
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        print(f"Error in stock details route: {e}")
         return jsonify({"error": "An unexpected error occurred"}), 500

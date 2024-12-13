@@ -6,6 +6,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import StockAnalysis from "./pages/StockAnalysis";
+import { Toaster } from 'react-hot-toast';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -32,7 +33,15 @@ function App() {
   };
 
   return (
+    
     <Router>
+      <Toaster 
+        position="top-right"
+        toastOptions={{
+          success: { duration: 3000 },
+          error: { duration: 5000 }
+        }} 
+      />
       <div className="bg-gray-900 text-white min-h-screen flex flex-col">
         {/* Navbar */}
         <nav className="p-4 text-white w-full bg-blue-600 sticky top-0 z-50">

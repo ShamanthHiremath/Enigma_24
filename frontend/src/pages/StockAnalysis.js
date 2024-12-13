@@ -64,7 +64,7 @@ const StockAnalysis = () => {
           },
           historical_prices: Array.isArray(data.historical_prices) ? data.historical_prices : [],
           news: Array.isArray(data.news) ? data.news : [],
-        };
+        };        
 
         setStockDetails(processedData);
         setError("");

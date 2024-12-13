@@ -94,18 +94,19 @@ def get_stock_details(symbol):
                 'change_percent': float(quote.get('changesPercentage', 0.0)),
             })
 
-        # Fetch historical data
+        # Fetch historical data for the last year (365 days)
         historical_url = f"{BASE_URL}/v3/historical-price-full/{symbol}"
-        historical_response = requests.get(historical_url, params={'apikey': FMP_API_KEY})
+        historical_response = requests.get(historical_url, params={'apikey': FMP_API_KEY, 'timeseries': 365})
         historical_data = historical_response.json()
 
         if historical_data and 'historical' in historical_data:
+            # Reverse the historical data so it shows from most recent to oldest
             stock_details['historical_prices'] = [
                 {
                     'date': entry.get('date', ''),
                     'close': float(entry.get('close', 0.0))
                 }
-                for entry in historical_data['historical'][:30]  # Last 30 days
+                for entry in reversed(historical_data['historical'][:365])  # Reverse the data order
                 if entry.get('date') and entry.get('close')
             ]
 

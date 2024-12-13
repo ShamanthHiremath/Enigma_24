@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, TrendingUp, ArrowUp, ArrowDown } from "lucide-react";
@@ -14,7 +15,6 @@ import {
   AreaChart,
   Area
 } from "recharts";
-
 // Dummy data for market indices and stocks
 const DUMMY_NIFTY_DATA = [
   { Date: '2023-01-01', Close: 17000 },
@@ -25,7 +25,6 @@ const DUMMY_NIFTY_DATA = [
   { Date: '2023-06-01', Close: 18500 },
   { Date: '2023-07-01', Close: 19000 },
 ];
-
 const DUMMY_SENSEX_DATA = [
   { Date: '2023-01-01', Close: 57000 },
   { Date: '2023-02-01', Close: 58000 },
@@ -35,7 +34,6 @@ const DUMMY_SENSEX_DATA = [
   { Date: '2023-06-01', Close: 61000 },
   { Date: '2023-07-01', Close: 62000 },
 ];
-
 const DUMMY_TOP_STOCKS = [
   { symbol: 'INFY', price: 1450, change: 2.5 },
   { symbol: 'TCS', price: 3200, change: 1.8 },
@@ -43,7 +41,6 @@ const DUMMY_TOP_STOCKS = [
   { symbol: 'HDFC', price: 1700, change: -1.5 },
   { symbol: 'ICICI', price: 950, change: 2.1 },
 ];
-
 const Home = () => {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
@@ -52,7 +49,6 @@ const Home = () => {
   const [showContent, setShowContent] = useState(false);
   const [searchPerformed, setSearchPerformed] = useState(false);
   const [showDashboard, setShowDashboard] = useState(false);
-
 
   useEffect(() => {
     const timer = setTimeout(() => setShowContent(true), 2000);
@@ -73,11 +69,9 @@ const Home = () => {
       toast.error("Please enter a stock name or symbol");
       return;
     }
-
     setLoading(true);
     setSearchPerformed(true);
     setShowDashboard(false);
-
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/stocks/search?name=${encodeURIComponent(query)}`);
       
@@ -106,7 +100,6 @@ const Home = () => {
     }
   };
 
-
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
@@ -122,7 +115,6 @@ const Home = () => {
     }
     return null;
   };
-
   return (
     <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white min-h-screen overflow-hidden">
       <Toaster 
@@ -154,7 +146,6 @@ const Home = () => {
           </motion.div>
         )}
       </AnimatePresence>
-
       <AnimatePresence>
         {showContent && (
           <motion.div
@@ -253,7 +244,6 @@ const Home = () => {
                   </ResponsiveContainer>
                 </div>
               </motion.div>
-
               {/* Sensex Chart */}
               <motion.div
                 initial={{ opacity: 0, x: 50 }}
@@ -294,7 +284,6 @@ const Home = () => {
                 </div>
               </motion.div>
             </div>
-
             {/* Top Stocks Section */}
             <motion.div
               initial={{ opacity: 0, y: 50 }}
@@ -328,5 +317,6 @@ const Home = () => {
     </div>
   );
 };
-
 export default Home;
+
+

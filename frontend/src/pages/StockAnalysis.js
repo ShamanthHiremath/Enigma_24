@@ -1,7 +1,167 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { ArrowUp, ArrowDown, Building } from 'lucide-react';
+import { ArrowUp, ArrowDown, Building, TrendingUp, TrendingDown, AlertTriangle, Newspaper, ShieldCheck, ShieldAlert, ShieldOff } from 'lucide-react';const RiskBadge = ({ riskLevel }) => {
+  const getRiskColor = () => {
+    switch (riskLevel) {
+      case 'Low': return 'bg-green-100 text-green-800';
+      case 'Medium': return 'bg-yellow-100 text-yellow-800';
+      case 'High': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getRiskIcon = () => {
+    switch (riskLevel) {
+      case 'Low': return <ShieldCheck className="mr-1" />;
+      case 'Medium': return <ShieldAlert className="mr-1" />;
+      case 'High': return <ShieldOff className="mr-1" />;
+      default: return <AlertTriangle className="mr-1" />;
+    }
+  };
+
+  return (
+    <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getRiskColor()}`}>
+      {getRiskIcon()}
+      {riskLevel} Risk
+    </div>
+  );
+};
+
+const RiskAnalysisSection = ({ riskAnalysis }) => {
+  if (!riskAnalysis) return null;
+
+  return (
+    <div className="bg-gray-800 rounded-xl p-6 shadow-lg">
+      <h2 className="text-xl font-bold mb-4 flex items-center">
+        <AlertTriangle className="mr-2" /> Risk Analysis
+      </h2>
+      
+      <div className="grid md:grid-cols-2 gap-4">
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Risk Metrics</h3>
+          <div className="space-y-2">
+            <p>
+              <span className="text-gray-400">Risk Level:</span>{' '}
+              <RiskBadge riskLevel={riskAnalysis.risk_level} />
+            </p>
+            <p>
+              <span className="text-gray-400">Volatility:</span>{' '}
+              <span className={`font-medium ${
+                parseFloat(riskAnalysis.volatility) > 5 
+                  ? 'text-red-500' 
+                  : parseFloat(riskAnalysis.volatility) > 2 
+                  ? 'text-yellow-500' 
+                  : 'text-green-500'
+              }`}>
+                {riskAnalysis.volatility}
+              </span>
+            </p>
+            <p>
+              <span className="text-gray-400">Daily Return:</span>{' '}
+              <span className={`font-medium ${
+                parseFloat(riskAnalysis.daily_return) > 0 
+                  ? 'text-green-500' 
+                  : 'text-red-500'
+              }`}>
+                {riskAnalysis.daily_return}
+              </span>
+            </p>
+            <p>
+              <span className="text-gray-400">Market Trend:</span>{' '}
+              <span className={`font-medium ${
+                riskAnalysis.trend === 'Bullish' 
+                  ? 'text-green-500' 
+                  : 'text-red-500'
+              }`}>
+                {riskAnalysis.trend}
+              </span>
+            </p>
+          </div>
+        </div>
+        
+        {riskAnalysis.latest_close && (
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Price Insights</h3>
+            <div className="bg-gray-700 rounded-lg p-4">
+              <p>
+                <span className="text-gray-400">Latest Close Price:</span>{' '}
+                <span className="font-bold">${riskAnalysis.latest_close.toFixed(2)}</span>
+              </p>
+              {/* You could add more price-related insights here */}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+const SentimentBadge = ({ prediction }) => {
+  if (prediction === null || prediction === undefined) {
+    return null;
+  }
+
+  const getSentimentClass = (score) => {
+    if (score <= 40) return 'bg-red-100 text-red-800';
+    if (score >= 60) return 'bg-green-100 text-green-800';
+    return 'bg-yellow-100 text-yellow-800';
+  };
+
+  const getSentimentText = (score) => {
+    if (score <= 40) return 'Bearish';
+    if (score >= 60) return 'Bullish';
+    return 'Neutral';
+  };
+
+  const getSentimentIcon = (score) => {
+    if (score <= 40) return <TrendingDown className="mr-1" />;
+    if (score >= 60) return <TrendingUp className="mr-1" />;
+    return <AlertTriangle className="mr-1" />;
+  };
+
+  return (
+    <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getSentimentClass(prediction)}`}>
+      {getSentimentIcon(prediction)}
+      {getSentimentText(prediction)} ({prediction.toFixed(1)})
+    </div>
+  );
+};
+
+const NewsSection = ({ title, news, icon }) => {
+  if (!news || news.length === 0) return null;
+
+  return (
+    <div className="bg-gray-800 rounded-xl p-6 shadow-lg">
+      <h2 className="text-xl font-bold mb-4 flex items-center">
+        {icon}
+        <span className="ml-2">{title}</span>
+      </h2>
+      <div className="space-y-4">
+        {news.map((article, index) => (
+          <div key={index} className="border-b border-gray-700 last:border-b-0 pb-4">
+            <a 
+              href={article.link || article.url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:text-blue-400 transition-colors block"
+            >
+              <h3 className="font-medium mb-1">{article.title || article.headline}</h3>
+              <div className="flex justify-between items-center">
+                <p className="text-sm text-gray-400">
+                  {article.publisher || 'Unknown Source'} 
+                  {article.published_at && ` - ${new Date(article.published_at).toLocaleDateString()}`}
+                </p>
+                {article.relevant_prediction && (
+                  <SentimentBadge prediction={article.relevant_prediction} />
+                )}
+              </div>
+            </a>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 const StockAnalysis = () => {
   const { symbol } = useParams();
@@ -20,7 +180,9 @@ const StockAnalysis = () => {
       website: '',
     },
     historical_prices: [],
-    news: [],
+    stock_news: [],
+    country_news: [],
+    sentiment: null,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -63,7 +225,9 @@ const StockAnalysis = () => {
             website: data.profile?.website ?? '#',
           },
           historical_prices: Array.isArray(data.historical_prices) ? data.historical_prices : [],
-          news: Array.isArray(data.news) ? data.news : [],
+          stock_news: Array.isArray(data.news) ? data.news : [],
+          country_news: Array.isArray(data.country_news) ? data.country_news : [],
+          sentiment: data.sentiment ?? null,
         };        
 
         setStockDetails(processedData);
@@ -95,6 +259,38 @@ const StockAnalysis = () => {
   }
 
   const isPositiveChange = stockDetails.current_quote.change > 0;
+
+  // Render Sentiment Section
+  const renderSentimentSection = () => {
+    if (!stockDetails.sentiment) return null;
+    return (
+      <div className="bg-gray-800 rounded-xl p-6 shadow-lg">
+        <h2 className="text-xl font-bold mb-4">Market Sentiment</h2>
+        
+        {/* Overall Sentiment */}
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold mb-2">Overall Sentiment</h3>
+          <SentimentBadge prediction={stockDetails.sentiment.overall_prediction} />
+        </div>
+
+        {/* Sentiment News */}
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Sentiment News</h3>
+          {stockDetails.sentiment.news.map((item, index) => (
+            <div 
+              key={index} 
+              className="mb-2 p-3 bg-gray-700 rounded-lg flex items-center justify-between"
+            >
+              <div>
+                <p className="text-sm font-medium">{item.headline}</p>
+                <SentimentBadge prediction={item.relevant_prediction} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="max-w-7xl mx-auto p-4 space-y-6">
@@ -166,21 +362,23 @@ const StockAnalysis = () => {
           </div>
         </div>
 
-        <div className="bg-gray-800 rounded-xl p-6 shadow-lg">
-          <h2 className="text-xl font-bold mb-4">Latest News</h2>
-          <div className="space-y-4">
-            {stockDetails.news.map((article, index) => (
-              <div key={index} className="border-b border-gray-700 last:border-b-0 pb-4">
-                <a href={article.link} target="_blank" rel="noopener noreferrer"
-                   className="hover:text-blue-400 transition-colors">
-                  <h3 className="font-medium mb-1">{article.title}</h3>
-                  <p className="text-sm text-gray-400">{article.publisher} - {new Date(article.published_at).toLocaleDateString()}</p>
-                </a>
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Stock-specific News */}
+        <NewsSection 
+          title={`${stockDetails.profile.name} News`}
+          news={stockDetails.stock_news}
+          icon={<Newspaper className="mr-2" />}
+        />
       </div>
+
+      {/* Country-specific News */}
+      <NewsSection 
+        title={`${stockDetails.profile.country} Market News`}
+        news={stockDetails.country_news}
+        icon={<Newspaper className="mr-2" />}
+      />
+      <RiskAnalysisSection riskAnalysis={stockDetails.risk_analysis} />
+      {/* Sentiment Section */}
+      {renderSentimentSection()}
     </div>
   );
 };

@@ -1,11 +1,14 @@
 from flask import Blueprint, jsonify, request
 import requests
 from datetime import datetime, timedelta
+from .sentiment_analysis import fetch_and_analyze_stock_sentiment
+#from sentiment_analysis import fetch_and_analyze_stock_sentiment  # Import the sentiment analysis function
 
 stock_bp = Blueprint('stock', __name__)
 
 # Financial Modeling Prep API Configuration
-FMP_API_KEY = 'cRDdT2E7PbKeYPsVST8kmnUBJwof2sTa'
+#FMP_API_KEY = 'cRDdT2E7PbKeYPsVST8kmnUBJwof2sTa'
+FMP_API_KEY = '259MkIX3NnYfdiZt4sqn5V2L0QwKNCF9'
 BASE_URL = 'https://financialmodelingprep.com/api'
 
 def search_stocks(query):
@@ -63,7 +66,8 @@ def get_stock_details(symbol):
                 'website': '#',
             },
             'historical_prices': [],
-            'news': []
+            'news': [],
+            'sentiment': None
         }
 
         # Fetch profile data
@@ -130,7 +134,22 @@ def get_stock_details(symbol):
                 for article in news_data[:5]
             ]
 
+        # Fetch sentiment analysis 
+        try:
+            sentiment_data = fetch_and_analyze_stock_sentiment(symbol)
+            stock_details['sentiment'] = {
+                'overall_prediction': sentiment_data.get('overall_prediction', None),
+                'news': sentiment_data.get('news', [])
+            }
+        except Exception as e:
+            print(f"Error fetching sentiment: {e}")
+            stock_details['sentiment'] = None
+
         return stock_details
+
+    except Exception as e:
+        print(f"Error fetching stock details: {e}")
+        return None
 
     except Exception as e:
         print(f"Error fetching stock details: {e}")

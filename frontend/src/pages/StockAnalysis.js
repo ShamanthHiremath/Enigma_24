@@ -1,119 +1,131 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { format, parseISO } from 'date-fns';  // Added date formatting
+import { format, parseISO } from 'date-fns';
 
 const StockAnalysis = () => {
   const { symbol } = useParams();
-  const [quote, setQuote] = useState(null);
-  const [dailyData, setDailyData] = useState([]);
+  const [stockDetails, setStockDetails] = useState(null);
+  const [historicalData, setHistoricalData] = useState([]);
+  const [stockNews, setStockNews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     const fetchStockData = async () => {
+      if (!symbol) return;
+
       try {
         setLoading(true);
-        // Fetch quote
-        const quoteResponse = await fetch(`${process.env.REACT_APP_API_URL}/stocks/quote/${symbol}`);
-        const quoteData = await quoteResponse.json();
+        // Fetch stock details
+        const detailsResponse = await fetch(`${process.env.REACT_APP_API_URL}/stocks/details/${symbol}`);
+        const detailsData = await detailsResponse.json();
 
-        // Fetch daily data
-        const dailyResponse = await fetch(`${process.env.REACT_APP_API_URL}/stocks/details/daily/${symbol}`);
-        const dailyData = await dailyResponse.json();
+        // Fetch historical data
+        const historicalResponse = await fetch(`${process.env.REACT_APP_API_URL}/stocks/historical/${symbol}`);
+        const historicalData = await historicalResponse.json();
 
-        setQuote(quoteData);
-        setDailyData(dailyData);
-        setLoading(false);
+        // Fetch stock news
+        const newsResponse = await fetch(`${process.env.REACT_APP_API_URL}/stocks/news/${symbol}`);
+        const newsData = await newsResponse.json();
+
+        setStockDetails(detailsData);
+        setHistoricalData(historicalData);
+        setStockNews(newsData);
       } catch (err) {
         console.error("Error fetching stock data:", err);
         setError("Failed to fetch stock details");
+      } finally {
         setLoading(false);
       }
     };
 
-    if (symbol) {
-      fetchStockData();
-    }
+    fetchStockData();
   }, [symbol]);
 
   const getChartData = () => {
-    if (!dailyData || dailyData.length === 0) return [];
+    if (!historicalData || historicalData.length === 0) return [];
 
-    // Return full daily data, formatted for chart
-    return dailyData.map(item => ({
-      name: format(parseISO(item.date), 'MMM dd'),  // Format date more readably
-      price: item.close
+    return historicalData.map(item => ({
+      name: format(new Date(item.Date), 'MMM dd'),
+      price: item.Close
     }));
   };
 
-  if (loading) return <div className="text-white text-center p-8">Loading...</div>;
+  if (loading) return <div className="text-white text-center p-8">Loading stock details...</div>;
   if (error) return <div className="text-red-500 text-center p-8">{error}</div>;
-  if (!quote) return <div className="text-white text-center p-8">No stock data available</div>;
+  if (!stockDetails) return <div className="text-white text-center p-8">No stock data available</div>;
 
   return (
     <div className="bg-gray-900 text-white min-h-screen p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">  {/* Increased max width */}
-        <div className="grid md:grid-cols-2 gap-4 md:gap-8">
-          {/* Stock Summary */}
-          <div className="bg-gray-800 p-4 md:p-6 rounded-lg">
-            <h2 className="text-2xl md:text-3xl font-bold mb-4">{quote.symbol}</h2>
-            <div className="space-y-2">
-              <p className="text-lg md:text-xl">Current Price: <span className="font-bold text-green-500">${quote.price}</span></p>
-              <p>Price Change: 
-                <span className={`ml-2 ${quote.change.startsWith('-') ? 'text-red-500' : 'text-green-500'}`}>
-                  {quote.change} ({quote.change_percent})
-                </span>
-              </p>
+      <div className="max-w-7xl mx-auto">
+        {/* Stock Overview */}
+        <div className="grid md:grid-cols-2 gap-4 md:gap-8 mb-8">
+          <div className="bg-gray-800 p-6 rounded-lg">
+            <h2 className="text-3xl font-bold mb-4">{stockDetails.name} ({stockDetails.symbol})</h2>
+            <div className="space-y-3">
+              <p className="text-xl">Current Price: <span className="font-bold text-green-500">${stockDetails.price}</span></p>
+              <p>Industry: {stockDetails.industry}</p>
+              <p>Sector: {stockDetails.sector}</p>
+              <p>Country: {stockDetails.country}</p>
+              <p>Market Cap: {stockDetails.marketCap}</p>
             </div>
           </div>
 
-          {/* Timeframe Description */}
-          <div className="bg-gray-800 p-4 md:p-6 rounded-lg flex items-center justify-center">
-            <div className="text-center">
-              <h3 className="text-xl font-semibold mb-2">Daily Price Trend</h3>
-              <p className="text-gray-400">
-                Showing daily closing prices for the past year, 
-                providing a comprehensive view of the stock's performance.
-              </p>
+          <div className="bg-gray-800 p-6 rounded-lg">
+            <h3 className="text-2xl font-semibold mb-4">Financial Metrics</h3>
+            <div className="space-y-3">
+              <p>Dividend Yield: {stockDetails.dividendYield}%</p>
+              <p>P/E Ratio: {stockDetails.priceToEarnings}</p>
+              <p>Earnings Growth: {stockDetails.earningsGrowth}%</p>
+              <p>Debt to Equity: {stockDetails.debtToEquity}</p>
             </div>
           </div>
         </div>
 
         {/* Price Chart */}
-        <div className="mt-4 md:mt-8 bg-gray-800 p-4 md:p-6 rounded-lg h-96 md:h-[500px]">  {/* Increased height */}
+        <div className="bg-gray-800 p-6 rounded-lg mb-8 h-96">
+          <h3 className="text-2xl font-semibold mb-4">Historical Price Trend</h3>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={getChartData()}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis 
-                dataKey="name" 
-                stroke="#9CA3AF" 
-                fontSize={10} 
-                angle={-45} 
-                textAnchor="end"
-                interval="preserveStart"  // Shows more x-axis labels
-              />
-              <YAxis 
-                stroke="#9CA3AF" 
-                domain={['dataMin', 'dataMax']}  // Dynamic y-axis range
-              />
+              <XAxis dataKey="name" stroke="#9CA3AF" />
+              <YAxis stroke="#9CA3AF" />
               <Tooltip 
                 contentStyle={{ 
                   backgroundColor: '#1F2937', 
-                  color: 'white',
-                  fontSize: '12px'
-                }}
-                itemStyle={{ color: '#9CA3AF' }}
+                  color: 'white' 
+                }} 
               />
               <Line 
                 type="monotone" 
                 dataKey="price" 
                 stroke="#3B82F6" 
                 strokeWidth={2}
-                dot={false}
               />
             </LineChart>
           </ResponsiveContainer>
+        </div>
+
+        {/* Stock News */}
+        <div className="bg-gray-800 p-6 rounded-lg">
+          <h3 className="text-2xl font-semibold mb-4">Recent Stock News</h3>
+          <div className="space-y-4">
+            {stockNews.map((article, index) => (
+              <div key={index} className="border-b border-gray-700 pb-4 last:border-b-0">
+                <h4 className="text-lg font-semibold mb-2">{article.title}</h4>
+                <p className="text-gray-400 mb-2">Published by: {article.publisher}</p>
+                <a 
+                  href={article.link} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-blue-500 hover:underline"
+                >
+                  Read More
+                </a>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

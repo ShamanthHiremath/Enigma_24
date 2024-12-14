@@ -1,101 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { ArrowUp, ArrowDown, Building, TrendingUp, TrendingDown, AlertTriangle, Newspaper, ShieldCheck, ShieldAlert, ShieldOff } from 'lucide-react';const RiskBadge = ({ riskLevel }) => {
-  const getRiskColor = () => {
-    switch (riskLevel) {
-      case 'Low': return 'bg-green-100 text-green-800';
-      case 'Medium': return 'bg-yellow-100 text-yellow-800';
-      case 'High': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
+import { ArrowUp, ArrowDown, Building, TrendingUp, TrendingDown, AlertTriangle, Newspaper, ShieldCheck, ShieldAlert, ShieldOff } from 'lucide-react';
+import RiskAnalysisSection from '../components/RiskAnalysisSection';
 
-  const getRiskIcon = () => {
-    switch (riskLevel) {
-      case 'Low': return <ShieldCheck className="mr-1" />;
-      case 'Medium': return <ShieldAlert className="mr-1" />;
-      case 'High': return <ShieldOff className="mr-1" />;
-      default: return <AlertTriangle className="mr-1" />;
-    }
-  };
-
-  return (
-    <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getRiskColor()}`}>
-      {getRiskIcon()}
-      {riskLevel} Risk
-    </div>
-  );
-};
-
-const RiskAnalysisSection = ({ riskAnalysis }) => {
-  if (!riskAnalysis) return null;
-
-  return (
-    <div className="bg-gray-800 rounded-xl p-6 shadow-lg">
-      <h2 className="text-xl font-bold mb-4 flex items-center">
-        <AlertTriangle className="mr-2" /> Risk Analysis
-      </h2>
-      
-      <div className="grid md:grid-cols-2 gap-4">
-        <div>
-          <h3 className="text-lg font-semibold mb-2">Risk Metrics</h3>
-          <div className="space-y-2">
-            <p>
-              <span className="text-gray-400">Risk Level:</span>{' '}
-              <RiskBadge riskLevel={riskAnalysis.risk_level} />
-            </p>
-            <p>
-              <span className="text-gray-400">Volatility:</span>{' '}
-              <span className={`font-medium ${
-                parseFloat(riskAnalysis.volatility) > 5 
-                  ? 'text-red-500' 
-                  : parseFloat(riskAnalysis.volatility) > 2 
-                  ? 'text-yellow-500' 
-                  : 'text-green-500'
-              }`}>
-                {riskAnalysis.volatility}
-              </span>
-            </p>
-            <p>
-              <span className="text-gray-400">Daily Return:</span>{' '}
-              <span className={`font-medium ${
-                parseFloat(riskAnalysis.daily_return) > 0 
-                  ? 'text-green-500' 
-                  : 'text-red-500'
-              }`}>
-                {riskAnalysis.daily_return}
-              </span>
-            </p>
-            <p>
-              <span className="text-gray-400">Market Trend:</span>{' '}
-              <span className={`font-medium ${
-                riskAnalysis.trend === 'Bullish' 
-                  ? 'text-green-500' 
-                  : 'text-red-500'
-              }`}>
-                {riskAnalysis.trend}
-              </span>
-            </p>
-          </div>
-        </div>
-        
-        {riskAnalysis.latest_close && (
-          <div>
-            <h3 className="text-lg font-semibold mb-2">Price Insights</h3>
-            <div className="bg-gray-700 rounded-lg p-4">
-              <p>
-                <span className="text-gray-400">Latest Close Price:</span>{' '}
-                <span className="font-bold">${riskAnalysis.latest_close.toFixed(2)}</span>
-              </p>
-              {/* You could add more price-related insights here */}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
 const SentimentBadge = ({ prediction }) => {
   if (prediction === null || prediction === undefined) {
     return null;
@@ -128,7 +36,9 @@ const SentimentBadge = ({ prediction }) => {
 };
 
 const NewsSection = ({ title, news, icon }) => {
-  if (!news || news.length === 0) return null;
+  const newsToRender = news || [];
+  
+  if (newsToRender.length === 0) return null;
 
   return (
     <div className="bg-gray-800 rounded-xl p-6 shadow-lg">
@@ -137,7 +47,7 @@ const NewsSection = ({ title, news, icon }) => {
         <span className="ml-2">{title}</span>
       </h2>
       <div className="space-y-4">
-        {news.map((article, index) => (
+        {newsToRender.map((article, index) => (
           <div key={index} className="border-b border-gray-700 last:border-b-0 pb-4">
             <a 
               href={article.link || article.url} 
@@ -180,9 +90,11 @@ const StockAnalysis = () => {
       website: '',
     },
     historical_prices: [],
-    stock_news: [],
-    country_news: [],
+    // Change this to match your backend response
+    news: [], // Ensure this matches the backend key
+    country_news: [], // Add this if your backend provides country news
     sentiment: null,
+    risk_analysis: null,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -209,30 +121,11 @@ const StockAnalysis = () => {
           throw new Error(data.error);
         }
 
-        // Ensure all required properties exist with defaults
-        const processedData = {
-          current_quote: {
-            price: data.current_quote?.price ?? 0,
-            change: data.current_quote?.change ?? 0,
-            change_percent: data.current_quote?.change_percent ?? 0,
-          },
-          profile: {
-            name: data.profile?.name ?? 'Unknown',
-            symbol: data.profile?.symbol ?? symbol,
-            industry: data.profile?.industry ?? 'Unknown',
-            sector: data.profile?.sector ?? 'Unknown',
-            country: data.profile?.country ?? 'Unknown',
-            website: data.profile?.website ?? '#',
-          },
-          historical_prices: Array.isArray(data.historical_prices) ? data.historical_prices : [],
-          stock_news: Array.isArray(data.news) ? data.news : [],
-          country_news: Array.isArray(data.country_news) ? data.country_news : [],
-          sentiment: data.sentiment ?? null,
-        };        
-
-        setStockDetails(processedData);
+        console.log('Full stock details:', data); // Debugging log
+        setStockDetails(data);
         setError("");
       } catch (err) {
+        console.error('Fetch error:', err);
         setError(err.message || "Failed to load stock data");
       } finally {
         setLoading(false);
@@ -252,48 +145,18 @@ const StockAnalysis = () => {
 
   if (error) {
     return (
-      <div className="text-red-500 text-center p-8 bg-red-100 rounded-lg m-4">
-        {error}
+      <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+        <strong className="font-bold">Error: </strong>
+        <span className="block sm:inline">{error}</span>
       </div>
     );
   }
 
   const isPositiveChange = stockDetails.current_quote.change > 0;
 
-  // Render Sentiment Section
-  const renderSentimentSection = () => {
-    if (!stockDetails.sentiment) return null;
-    return (
-      <div className="bg-gray-800 rounded-xl p-6 shadow-lg">
-        <h2 className="text-xl font-bold mb-4">Market Sentiment</h2>
-        
-        {/* Overall Sentiment */}
-        <div className="mb-4">
-          <h3 className="text-lg font-semibold mb-2">Overall Sentiment</h3>
-          <SentimentBadge prediction={stockDetails.sentiment.overall_prediction} />
-        </div>
-
-        {/* Sentiment News */}
-        <div>
-          <h3 className="text-lg font-semibold mb-2">Sentiment News</h3>
-          {stockDetails.sentiment.news.map((item, index) => (
-            <div 
-              key={index} 
-              className="mb-2 p-3 bg-gray-700 rounded-lg flex items-center justify-between"
-            >
-              <div>
-                <p className="text-sm font-medium">{item.headline}</p>
-                <SentimentBadge prediction={item.relevant_prediction} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="max-w-7xl mx-auto p-4 space-y-6">
+      {/* Header Section */}
       <div className="bg-gray-800 rounded-xl p-6 shadow-lg">
         <div className="flex justify-between items-start">
           <div>
@@ -310,6 +173,7 @@ const StockAnalysis = () => {
         </div>
       </div>
 
+      {/* Price History Chart */}
       {stockDetails.historical_prices.length > 0 && (
         <div className="bg-gray-800 rounded-xl p-6 shadow-lg">
           <h2 className="text-xl font-bold mb-4">Price History</h2>
@@ -345,6 +209,7 @@ const StockAnalysis = () => {
         </div>
       )}
 
+      {/* Company Info and Stock News */}
       <div className="grid md:grid-cols-2 gap-6">
         <div className="bg-gray-800 rounded-xl p-6 shadow-lg">
           <h2 className="text-xl font-bold mb-4 flex items-center">
@@ -355,30 +220,34 @@ const StockAnalysis = () => {
             <p><span className="text-gray-400">Industry:</span> {stockDetails.profile.industry}</p>
             <p><span className="text-gray-400">Sector:</span> {stockDetails.profile.sector}</p>
             <p><span className="text-gray-400">Country:</span> {stockDetails.profile.country}</p>
-            <p><span className="text-gray-400">Website:</span> 
+            <p>
+              <span className="text-gray-400">Website:</span> 
               <a href={stockDetails.profile.website} target="_blank" rel="noopener noreferrer" 
-                 className="ml-2 text-blue-400 hover:text-blue-300">{stockDetails.profile.website}</a>
+                 className="ml-2 text-blue-400 hover:text-blue-300">
+                {stockDetails.profile.website}
+              </a>
             </p>
           </div>
         </div>
 
-        {/* Stock-specific News */}
         <NewsSection 
           title={`${stockDetails.profile.name} News`}
-          news={stockDetails.stock_news}
+          news={stockDetails.news} 
           icon={<Newspaper className="mr-2" />}
         />
       </div>
 
-      {/* Country-specific News */}
-      <NewsSection 
-        title={`${stockDetails.profile.country} Market News`}
-        news={stockDetails.country_news}
-        icon={<Newspaper className="mr-2" />}
-      />
+      {/* Country Market News */}
+      {stockDetails.country_news && stockDetails.country_news.length > 0 && (
+        <NewsSection 
+          title={`${stockDetails.profile.country} Market News`}
+          news={stockDetails.country_news}
+          icon={<Newspaper className="mr-2" />}
+        />
+      )}
+
+      {/* Risk Analysis Section */}
       <RiskAnalysisSection riskAnalysis={stockDetails.risk_analysis} />
-      {/* Sentiment Section */}
-      {renderSentimentSection()}
     </div>
   );
 };

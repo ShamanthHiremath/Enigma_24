@@ -7,7 +7,8 @@ from dotenv import load_dotenv
 from routes.auth_routes import auth_bp
 from routes.stock_routes import stock_bp
 from routes.market_routes import market_bp
-
+# In your app.py or similar
+from routes.stock_routes import risk_bp
 # Import database connection
 from utils.db import connect_db
 
@@ -42,7 +43,7 @@ def create_app():
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(stock_bp, url_prefix="/stocks")
     app.register_blueprint(market_bp, url_prefix='/api/market')
-
+    app.register_blueprint(risk_bp, url_prefix='/risk')
     return app
 
 # Application factory pattern

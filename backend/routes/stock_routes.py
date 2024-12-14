@@ -1,14 +1,66 @@
 from flask import Blueprint, jsonify, request
+import logging
 import requests
 from datetime import datetime, timedelta
 from .sentiment_analysis import fetch_and_analyze_stock_sentiment
-#from sentiment_analysis import fetch_and_analyze_stock_sentiment  # Import the sentiment analysis function
+from .risk_analysis import fetch_risk_results  # Import the risk analysis function
 
 stock_bp = Blueprint('stock', __name__)
+from .risk_analysis import risk_analysis_model
+
+risk_bp = Blueprint('risk', __name__)
+
+@risk_bp.route('/analyze/<symbol>', methods=['GET'])
+def analyze_stock_risk(symbol):
+    try:
+        if not symbol:
+            return jsonify({"error": "Symbol is required"}), 400
+        
+        # Attempt to get risk analysis results
+        results = risk_analysis_model(symbol)
+        
+        # Check for error in results
+        if 'error' in results:
+            return jsonify({
+                "risk_analysis": {
+                    "error": results['error'],
+                    "risk_level": 'N/A',
+                    "volatility": 'N/A',
+                    "daily_return": 'N/A',
+                    "current_price": 'N/A',
+                    "trend": 'N/A',
+                    "latest_close": None
+                }
+            }), 400
+        
+        # Return successful risk analysis
+        return jsonify({
+            "risk_analysis": {
+                "risk_level": results.get('risk_level', 'N/A'),
+                "volatility": results.get('volatility', 'N/A'),
+                "daily_return": results.get('daily_return', 'N/A'),
+                "current_price": results.get('current_price', 'N/A'),
+                "trend": results.get('trend', 'N/A'),
+                "latest_close": results.get('latest_close', None)
+            }
+        })
+        
+    except Exception as e:
+        logging.error(f"Comprehensive error analyzing risk for {symbol}: {str(e)}")
+        return jsonify({
+            "risk_analysis": {
+                "error": "Failed to analyze stock risk",
+                "risk_level": 'N/A',
+                "volatility": 'N/A',
+                "daily_return": 'N/A',
+                "current_price": 'N/A',
+                "trend": 'N/A',
+                "latest_close": None
+            }
+        }), 500
 
 # Financial Modeling Prep API Configuration
-#FMP_API_KEY = 'cRDdT2E7PbKeYPsVST8kmnUBJwof2sTa'
-FMP_API_KEY = '259MkIX3NnYfdiZt4sqn5V2L0QwKNCF9'
+FMP_API_KEY = 'GbXRY0QJF2ZAzqNqFo9G9tmInkDmNMz9'
 BASE_URL = 'https://financialmodelingprep.com/api'
 
 def search_stocks(query):
@@ -27,7 +79,7 @@ def search_stocks(query):
         return data if data else []
     
     except Exception as e:
-        print(f"Error in stock search: {e}")
+        logging.error(f"Error in stock search: {e}")
         raise
 
 @stock_bp.route('/search', methods=['GET'])
@@ -42,10 +94,10 @@ def search_stocks_route():
         return jsonify(search_results)
     
     except requests.RequestException as e:
-        print(f"Network error: {e}")
+        logging.error(f"Network error: {e}")
         return jsonify({"error": "Network error occurred"}), 500
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        logging.error(f"Unexpected error: {e}")
         return jsonify({"error": "An unexpected error occurred"}), 500
 
 def get_stock_details(symbol):
@@ -67,7 +119,8 @@ def get_stock_details(symbol):
             },
             'historical_prices': [],
             'news': [],
-            'sentiment': None
+            'sentiment': None,
+            'risk_analysis': None
         }
 
         # Fetch profile data
@@ -137,24 +190,53 @@ def get_stock_details(symbol):
         # Fetch sentiment analysis 
         try:
             sentiment_data = fetch_and_analyze_stock_sentiment(symbol)
+            
+            # Combine existing news with sentiment news if needed
+            existing_news = stock_details.get('news', [])
+            sentiment_news = sentiment_data.get('news', [])
+            
+            # Merge news, prioritizing sentiment news but keeping existing if sentiment news is empty
+            stock_details['news'] = sentiment_news if sentiment_news else existing_news
+            
             stock_details['sentiment'] = {
-                'overall_prediction': sentiment_data.get('overall_prediction', None),
-                'news': sentiment_data.get('news', [])
+                'overall_prediction': sentiment_data.get('overall_prediction', None)
             }
         except Exception as e:
-            print(f"Error fetching sentiment: {e}")
+            logging.error(f"Error fetching sentiment: {e}")
             stock_details['sentiment'] = None
+
+        # Fetch Risk Analysis
+        try:
+            # Use requests to make an internal API call
+            risk_response = requests.get(f"{request.host_url}risk/analyze/{symbol}")
+            if risk_response.ok:
+                stock_details['risk_analysis'] = risk_response.json().get('risk_analysis')
+            else:
+                stock_details['risk_analysis'] = {
+                    'risk_level': 'N/A',
+                    'volatility': 'N/A',
+                    'daily_return': 'N/A',
+                    'current_price': 'N/A',
+                    'latest_close': None,
+                    'trend': 'N/A'
+                }
+        except Exception as e:
+            logging.error(f"Error fetching risk analysis: {e}")
+            stock_details['risk_analysis'] = {
+                'risk_level': 'N/A',
+                'volatility': 'N/A',
+                'daily_return': 'N/A',
+                'current_price': 'N/A',
+                'latest_close': None,
+                'trend': 'N/A'
+            }
 
         return stock_details
 
     except Exception as e:
-        print(f"Error fetching stock details: {e}")
+        logging.error(f"Comprehensive error fetching stock details: {e}")
         return None
-
-    except Exception as e:
-        print(f"Error fetching stock details: {e}")
-        return None
-
+    
 @stock_bp.route('/details/<symbol>', methods=['GET'])
 def stock_details_route(symbol):
     if not symbol:
@@ -167,5 +249,5 @@ def stock_details_route(symbol):
         return jsonify(details)
 
     except Exception as e:
-        print(f"Error in stock details route: {e}")
+        logging.error(f"Error in stock details route: {e}")
         return jsonify({"error": "An unexpected error occurred"}), 500

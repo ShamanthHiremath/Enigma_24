@@ -1,8 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { ArrowUp, ArrowDown, Building, TrendingUp, TrendingDown, AlertTriangle, Newspaper, ShieldCheck, ShieldAlert, ShieldOff } from 'lucide-react';
+import { ArrowUp, ArrowDown, Building, TrendingUp, TrendingDown, AlertTriangle, Newspaper, BarChart2 } from 'lucide-react';
 import RiskAnalysisSection from '../components/RiskAnalysisSection';
+
+const Card = ({ children, className }) => (
+  <div className={`rounded-xl shadow-lg ${className}`}>{children}</div>
+);
+
+const CardHeader = ({ children, className }) => (
+  <div className={`p-4 border-b border-gray-700 ${className}`}>{children}</div>
+);
+
+const CardTitle = ({ children, className }) => (
+  <h2 className={`text-xl font-bold text-white ${className}`}>{children}</h2>
+);
+
+const CardContent = ({ children, className }) => (
+  <div className={`p-4 ${className}`}>{children}</div>
+);
 
 const SentimentBadge = ({ prediction }) => {
   if (prediction === null || prediction === undefined) {
@@ -32,6 +48,59 @@ const SentimentBadge = ({ prediction }) => {
       {getSentimentIcon(prediction)}
       {getSentimentText(prediction)} ({prediction.toFixed(1)})
     </div>
+  );
+};
+
+const SentimentAnalysisCard = ({ sentiment }) => {
+  if (!sentiment || !sentiment.overall_prediction) {
+    return null;
+  }
+
+  const score = sentiment.overall_prediction;
+
+  const getSentimentColor = (score) => {
+    if (score <= 40) return 'text-red-500';
+    if (score >= 60) return 'text-green-500';
+    return 'text-yellow-500';
+  };
+
+  const getSentimentText = (score) => {
+    if (score <= 40) return 'Bearish';
+    if (score >= 60) return 'Bullish';
+    return 'Neutral';
+  };
+
+  const getSentimentIcon = (score) => {
+    if (score <= 40) return <TrendingDown size={24} />;
+    if (score >= 60) return <TrendingUp size={24} />;
+    return <AlertTriangle size={24} />;
+  };
+
+  return (
+    <Card className="bg-gray-800">
+      <CardHeader>
+        <CardTitle className="flex items-center">
+          {getSentimentIcon(score)}
+          <span className="ml-2">Market Sentiment</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="text-center">
+          <div className={`text-3xl font-bold mb-2 ${getSentimentColor(score)}`}>
+            {getSentimentText(score)}
+          </div>
+          <div className="text-gray-400">
+            Sentiment Score: {score.toFixed(1)}
+          </div>
+          <div className="mt-4 w-full bg-gray-700 rounded-full h-2.5">
+            <div
+              className={`h-2.5 rounded-full ${getSentimentColor(score)}`}
+              style={{ width: `${score}%` }}
+            ></div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
@@ -73,6 +142,10 @@ const NewsSection = ({ title, news, icon }) => {
   );
 };
 
+const PricePredictionCard = ({ prediction }) => {
+  // ... (PricePredictionCard implementation remains the same)
+};
+
 const StockAnalysis = () => {
   const { symbol } = useParams();
   const [stockDetails, setStockDetails] = useState({
@@ -90,11 +163,11 @@ const StockAnalysis = () => {
       website: '',
     },
     historical_prices: [],
-    // Change this to match your backend response
-    news: [], // Ensure this matches the backend key
-    country_news: [], // Add this if your backend provides country news
+    news: [],
+    country_news: [],
     sentiment: null,
     risk_analysis: null,
+    price_prediction: null
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -121,8 +194,10 @@ const StockAnalysis = () => {
           throw new Error(data.error);
         }
 
-        console.log('Full stock details:', data); // Debugging log
-        setStockDetails(data);
+        setStockDetails(prevDetails => ({
+          ...prevDetails,
+          ...data
+        }));
         setError("");
       } catch (err) {
         console.error('Fetch error:', err);
@@ -171,6 +246,14 @@ const StockAnalysis = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Analysis Cards Grid */}
+      <div className="grid md:grid-cols-2 gap-6">
+        <SentimentAnalysisCard sentiment={stockDetails.sentiment} />
+        {stockDetails.price_prediction && (
+          <PricePredictionCard prediction={stockDetails.price_prediction} />
+        )}
       </div>
 
       {/* Price History Chart */}

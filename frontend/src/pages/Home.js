@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, TrendingUp, ArrowUp, ArrowDown } from "lucide-react";
@@ -15,32 +14,7 @@ import {
   AreaChart,
   Area
 } from "recharts";
-// Dummy data for market indices and stocks
-const DUMMY_NIFTY_DATA = [
-  { Date: '2023-01-01', Close: 17000 },
-  { Date: '2023-02-01', Close: 17500 },
-  { Date: '2023-03-01', Close: 17200 },
-  { Date: '2023-04-01', Close: 17800 },
-  { Date: '2023-05-01', Close: 18000 },
-  { Date: '2023-06-01', Close: 18500 },
-  { Date: '2023-07-01', Close: 19000 },
-];
-const DUMMY_SENSEX_DATA = [
-  { Date: '2023-01-01', Close: 57000 },
-  { Date: '2023-02-01', Close: 58000 },
-  { Date: '2023-03-01', Close: 57500 },
-  { Date: '2023-04-01', Close: 59000 },
-  { Date: '2023-05-01', Close: 60000 },
-  { Date: '2023-06-01', Close: 61000 },
-  { Date: '2023-07-01', Close: 62000 },
-];
-const DUMMY_TOP_STOCKS = [
-  { symbol: 'INFY', price: 1450, change: 2.5 },
-  { symbol: 'TCS', price: 3200, change: 1.8 },
-  { symbol: 'RELIANCE', price: 2300, change: 3.2 },
-  { symbol: 'HDFC', price: 1700, change: -1.5 },
-  { symbol: 'ICICI', price: 950, change: 2.1 },
-];
+
 const Home = () => {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
@@ -48,12 +22,63 @@ const Home = () => {
   const [loading, setLoading] = useState(false);
   const [showContent, setShowContent] = useState(false);
   const [searchPerformed, setSearchPerformed] = useState(false);
-  const [showDashboard, setShowDashboard] = useState(false);
+  const [marketData, setMarketData] = useState({
+    nifty50: { historical: [], current: {} },
+    sensex: { historical: [], current: {} },
+    topStocks: [
+      {
+        symbol: "INFY",
+        price: 1842.75,
+        change: 3.8
+      },
+      {
+        symbol: "HDFC",
+        price: 2756.30,
+        change: 2.9
+      },
+      {
+        symbol: "TCS",
+        price: 3654.90,
+        change: 4.2
+      },
+      {
+        symbol: "RELIANCE",
+        price: 2463.15,
+        change: -1.2
+      },
+      {
+        symbol: "WIPRO",
+        price: 456.80,
+        change: 1.7
+      }
+    ]
+  });
+
 
   useEffect(() => {
+    const fetchMarketData = async () => {
+      try {
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/market/market-overview`);
+        if (!response.ok) {
+          throw new Error('Market data fetch failed');
+        }
+        const data = await response.json();
+        // Keep topStocks hardcoded, update other market data
+        setMarketData(prevData => ({
+          ...data,
+          topStocks: prevData.topStocks
+        }));
+      } catch (error) {
+        console.error("Error fetching market data:", error);
+        toast.error("Unable to fetch market data");
+      }
+    };
+
+    fetchMarketData();
     const timer = setTimeout(() => setShowContent(true), 2000);
     return () => clearTimeout(timer);
   }, []);
+
   const handleInputChange = (e) => {
     setQuery(e.target.value);
     if (!e.target.value.trim()) {
@@ -61,6 +86,7 @@ const Home = () => {
       setSearchResults([]);
     }
   };
+
   const handleSearch = async (e) => {
     e.preventDefault();
     if (!query.trim()) {
@@ -71,7 +97,6 @@ const Home = () => {
     }
     setLoading(true);
     setSearchPerformed(true);
-    setShowDashboard(false);
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/stocks/search?name=${encodeURIComponent(query)}`);
       
@@ -115,6 +140,7 @@ const Home = () => {
     }
     return null;
   };
+
   return (
     <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white min-h-screen overflow-hidden">
       <Toaster 
@@ -184,19 +210,19 @@ const Home = () => {
               </form>
             </motion.div>
             {searchPerformed && searchResults.length > 0 && (
-  <motion.div 
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8"
-  >
-              {searchResults.map((stock) => (
-                <motion.div
-                  key={stock.symbol}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  onClick={() => navigate(`/stocks/${stock.symbol}`)}
-                  className="bg-gray-800/40 backdrop-blur-lg rounded-xl p-6 shadow-xl hover:bg-gray-700/40 cursor-pointer transform transition-all hover:scale-105"
-                >
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8"
+              >
+                {searchResults.map((stock) => (
+                  <motion.div
+                    key={stock.symbol}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    onClick={() => navigate(`/stocks/${stock.symbol}`)}
+                    className="bg-gray-800/40 backdrop-blur-lg rounded-xl p-6 shadow-xl hover:bg-gray-700/40 cursor-pointer transform transition-all hover:scale-105"
+                  >
                     <h3 className="text-xl font-bold mb-2">{stock.symbol}</h3>
                     <p className="text-gray-300 mb-2">{stock.name}</p>
                     <p className="text-sm text-gray-400">{stock.exchange}</p>
@@ -214,14 +240,14 @@ const Home = () => {
               >
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-2xl font-bold">Nifty 50</h2>
-                  <div className="flex items-center text-green-500">
-                    <ArrowUp className="mr-2" />
-                    <span>+3.2%</span>
+                  <div className={`flex items-center ${marketData.nifty50.current.changePercent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {marketData.nifty50.current.changePercent >= 0 ? <ArrowUp className="mr-2" /> : <ArrowDown className="mr-2" />}
+                    {Math.abs(marketData.nifty50.current.changePercent || 0).toFixed(2)}%
                   </div>
                 </div>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={DUMMY_NIFTY_DATA}>
+                    <AreaChart data={marketData.nifty50.historical}>
                       <defs>
                         <linearGradient id="niftyGradient" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#22c55e" stopOpacity={0.5} />
@@ -253,14 +279,14 @@ const Home = () => {
               >
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-2xl font-bold">Sensex</h2>
-                  <div className="flex items-center text-green-500">
-                    <ArrowUp className="mr-2" />
-                    <span>+2.7%</span>
+                  <div className={`flex items-center ${marketData.sensex.current.changePercent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    {marketData.sensex.current.changePercent >= 0 ? <ArrowUp className="mr-2" /> : <ArrowDown className="mr-2" />}
+                    {Math.abs(marketData.sensex.current.changePercent || 0).toFixed(2)}%
                   </div>
                 </div>
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={DUMMY_SENSEX_DATA}>
+                    <AreaChart data={marketData.sensex.historical}>
                       <defs>
                         <linearGradient id="sensexGradient" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.5} />
@@ -286,29 +312,29 @@ const Home = () => {
             </div>
             {/* Top Stocks Section */}
             <motion.div
-              initial={{ opacity: 0, y: 50 }}
+        initial={{ opacity: 0, y: 50 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 1.1 }}
+        className="bg-gray-800/40 backdrop-blur-lg rounded-3xl p-6 shadow-2xl"
+      >
+        <h2 className="text-2xl font-bold mb-6">Top Performing Stocks</h2>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          {marketData.topStocks.map((stock, index) => (
+            <motion.div
+              key={stock.symbol}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 1.1 }}
-              className="bg-gray-800/40 backdrop-blur-lg rounded-3xl p-6 shadow-2xl"
+              transition={{ delay: 1.2 + index * 0.1 }}
+              className="bg-gray-700/50 rounded-xl p-4 text-center"
             >
-              <h2 className="text-2xl font-bold mb-6">Top Performing Stocks</h2>
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                {DUMMY_TOP_STOCKS.map((stock, index) => (
-                  <motion.div
-                    key={stock.symbol}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 1.2 + index * 0.1 }}
-                    className="bg-gray-700/50 rounded-xl p-4 text-center"
-                  >
-                    <div className="font-bold text-lg mb-2">{stock.symbol}</div>
-                    <div className="text-xl mb-2">₹{stock.price}</div>
-                    <div className={`flex items-center justify-center ${stock.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                      {stock.change >= 0 ? <ArrowUp className="mr-1" /> : <ArrowDown className="mr-1" />}
-                      {Math.abs(stock.change)}%
-                    </div>
-                  </motion.div>
-                ))}
+              <div className="font-bold text-lg mb-2">{stock.symbol}</div>
+              <div className="text-xl mb-2">₹{stock.price.toFixed(2)}</div>
+              <div className={`flex items-center justify-center ${stock.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                {stock.change >= 0 ? <ArrowUp className="mr-1" /> : <ArrowDown className="mr-1" />}
+                {Math.abs(stock.change).toFixed(2)}%
+              </div>
+            </motion.div>
+          ))}
               </div>
             </motion.div>
           </motion.div>
@@ -317,6 +343,5 @@ const Home = () => {
     </div>
   );
 };
+
 export default Home;
-
-

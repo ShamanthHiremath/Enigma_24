@@ -5,6 +5,7 @@ import yfinance as yf
 from datetime import datetime, timedelta
 from .sentiment_analysis import fetch_and_analyze_stock_sentiment
 from .risk_analysis import fetch_risk_results, risk_analysis_model
+from .prediction_analysis import stock_price_predictor
 
 stock_bp = Blueprint('stock', __name__)
 risk_bp = Blueprint('risk', __name__)
@@ -119,7 +120,8 @@ def get_stock_details(symbol):
             'historical_prices': [],
             'news': [],
             'sentiment': None,
-            'risk_analysis': None
+            'risk_analysis': None,
+            'price_prediction': None  # New field for price prediction
         }
 
         # Fetch stock information using yfinance
@@ -197,7 +199,6 @@ def get_stock_details(symbol):
         except Exception as e:
             logging.error(f"Error fetching sentiment: {e}")
             stock_details['sentiment'] = None
-
         # Fetch Risk Analysis
         try:
             # Use requests to make an internal API call
@@ -223,6 +224,27 @@ def get_stock_details(symbol):
                 'latest_close': None,
                 'trend': 'N/A'
             }
+        try:
+            # Use the stock_price_predictor function
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=365)
+            prediction_result = stock_price_predictor(symbol, start_date, end_date)
+            
+            if 'error' not in prediction_result:
+                stock_details['price_prediction'] = {
+                    'predicted_price': prediction_result.get('predicted_price'),
+                    'last_close_price': prediction_result.get('last_close_price'),
+                    'price_change': prediction_result.get('price_change'),
+                    'prediction_confidence': prediction_result.get('prediction_confidence'),
+                    'prediction_direction': prediction_result.get('prediction_direction')
+                }
+            else:
+                logging.error(f"Price prediction error: {prediction_result['error']}")
+                stock_details['price_prediction'] = None
+
+        except Exception as e:
+            logging.error(f"Error in price prediction: {e}")
+            stock_details['price_prediction'] = None
 
         return stock_details
 

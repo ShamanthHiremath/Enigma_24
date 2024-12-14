@@ -1,134 +1,89 @@
+import yfinance as yf
 import requests
 from flask import Blueprint, jsonify
 from datetime import datetime, timedelta
 import logging
+import pandas as pd
 
 # Create a Blueprint for market routes
 market_bp = Blueprint('market_bp', __name__)
 
-class NSEDataFetcher:
-    BASE_URL = 'https://www.nseindia.com'
-    
+class MarketDataFetcher:
     @staticmethod
-    def get_headers():
-        """Generate headers to mimic browser request"""
-        return {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'Pragma': 'no-cache',
-            'Cache-Control': 'no-cache'
-        }
-
-    @classmethod
-    def fetch_index_data(cls, index_symbol):
+    def fetch_index_data(index_symbol):
         """
-        Fetch index data for Nifty or Sensex
+        Fetch index data using YFinance
         
         Args:
-            index_symbol (str): Index symbol (e.g., 'NIFTY 50', 'SENSEX')
+            index_symbol (str): Index symbol (e.g., '^NSEI' for Nifty 50, '^BSESN' for Sensex)
         
         Returns:
             dict: Current price and historical data
         """
         try:
-            # Create a session to maintain cookies
-            session = requests.Session()
-            session.headers.update(cls.get_headers())
-
-            # First, get home page to set cookies
-            session.get(cls.BASE_URL, timeout=10)
-
-            # Fetch current index data
-            quote_url = f'{cls.BASE_URL}/api/equity-stockIndices'
-            response = session.get(quote_url, params={'index': index_symbol}, timeout=10)
+            # Fetch ticker data
+            ticker = yf.Ticker(index_symbol)
             
-            if response.status_code != 200:
-                logging.error(f"Failed to fetch {index_symbol} data")
-                return None
+            # Get current data
+            current_info = ticker.info
+            current_price = current_info.get('regularMarketPrice', 0)
+            previous_close = current_info.get('previousClose', 0)
+            change = current_price - previous_close
+            change_percent = (change / previous_close) * 100 if previous_close else 0
 
-            data = response.json()
+            # Get historical data for last 12 months
+            historical_data = ticker.history(period='1y')
             
-            if not data or 'data' not in data or not data['data']:
-                logging.error(f"No data found for {index_symbol}")
-                return None
-
-            # Get the first (latest) data point
-            latest_data = data['data'][0]
-
-            # Fetch historical data 
-            historical_url = f'{cls.BASE_URL}/api/historical/cm/equity'
-            historical_response = session.get(historical_url, params={
-                'symbol': index_symbol,
-                'series': 'EQ',
-                'from': (datetime.now() - timedelta(days=365)).strftime('%d-%m-%Y'),
-                'to': datetime.now().strftime('%d-%m-%Y')
-            }, timeout=10)
-
-            historical_data = []
-            if historical_response.status_code == 200:
-                historical_json = historical_response.json()
-                historical_data = [
-                    {
-                        'Date': entry['CH_DATE'],
-                        'Close': float(entry['CH_CLOSING_PRICE'])
-                    } 
-                    for entry in historical_json.get('data', [])
-                ][-12:]  # Last 12 months
+            # Transform historical data
+            historical_prices = [
+                {
+                    'Date': idx.strftime('%Y-%m-%d'),
+                    'Close': float(row['Close'])
+                }
+                for idx, row in historical_data.iterrows()
+            ][-12:]  # Last 12 months
 
             return {
                 'current': {
-                    'price': float(latest_data.get('last', 0)),
-                    'change': float(latest_data.get('change', 0)),
-                    'changePercent': float(latest_data.get('percentChange', 0))
+                    'price': float(current_price),
+                    'change': float(change),
+                    'changePercent': float(change_percent)
                 },
-                'historical': historical_data
+                'historical': historical_prices
             }
 
         except Exception as e:
             logging.error(f"Error fetching {index_symbol} data: {str(e)}")
             return None
 
-    @classmethod
-    def fetch_top_stocks(cls):
+    @staticmethod
+    def fetch_top_stocks():
         """
-        Fetch top performing stocks
+        Fetch top performing stocks using YFinance
         
         Returns:
             list: Top stocks with symbol, price, and change
         """
         try:
-            # Create a session to maintain cookies
-            session = requests.Session()
-            session.headers.update(cls.get_headers())
-
-            # First, get home page to set cookies
-            session.get(cls.BASE_URL, timeout=10)
-
-            # Fetch top stocks
-            top_stocks_url = f'{cls.BASE_URL}/api/equity-stockIndices'
-            response = session.get(top_stocks_url, params={'index': 'NIFTY 50'}, timeout=10)
-            
-            if response.status_code != 200:
-                logging.error("Failed to fetch top stocks")
-                return []
-
-            data = response.json()
-            
-            if not data or 'data' not in data:
-                logging.error("No stock data found")
-                return []
-
-            # Select top 5 stocks by market cap or performance
-            top_stocks = [
-                {
-                    'symbol': stock['symbol'],
-                    'price': float(stock['lastPrice']),
-                    'change': float(stock['percentChange'])
-                } 
-                for stock in data['data'][:5]
+            # Nifty 50 top stocks symbols
+            top_stocks_symbols = [
+                'INFY.NS', 'TCS.NS', 'RELIANCE.NS', 
+                'HDFCBANK.NS', 'ICICIBANK.NS'
             ]
+
+            top_stocks = []
+            for symbol in top_stocks_symbols:
+                try:
+                    ticker = yf.Ticker(symbol)
+                    info = ticker.info
+                    
+                    top_stocks.append({
+                        'symbol': symbol.replace('.NS', ''),
+                        'price': float(info.get('regularMarketPrice', 0)),
+                        'change': float(info.get('regularMarketChangePercent', 0))
+                    })
+                except Exception as e:
+                    logging.error(f"Error fetching stock {symbol}: {str(e)}")
 
             return top_stocks
 
@@ -144,9 +99,9 @@ def get_market_indices():
         dict: Market data including Nifty 50, Sensex, and top stocks
     """
     try:
-        nifty_data = NSEDataFetcher.fetch_index_data('NIFTY 50')
-        sensex_data = NSEDataFetcher.fetch_index_data('SENSEX')
-        top_stocks = NSEDataFetcher.fetch_top_stocks()
+        nifty_data = MarketDataFetcher.fetch_index_data('^NSEI')
+        sensex_data = MarketDataFetcher.fetch_index_data('^BSESN')
+        top_stocks = MarketDataFetcher.fetch_top_stocks()
 
         return {
             'nifty50': nifty_data or {'historical': [], 'current': {}},

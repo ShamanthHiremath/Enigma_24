@@ -1,13 +1,12 @@
 from flask import Blueprint, jsonify, request
 import logging
 import requests
+import yfinance as yf
 from datetime import datetime, timedelta
 from .sentiment_analysis import fetch_and_analyze_stock_sentiment
-from .risk_analysis import fetch_risk_results  # Import the risk analysis function
+from .risk_analysis import fetch_risk_results, risk_analysis_model
 
 stock_bp = Blueprint('stock', __name__)
-from .risk_analysis import risk_analysis_model
-
 risk_bp = Blueprint('risk', __name__)
 
 @risk_bp.route('/analyze/<symbol>', methods=['GET'])
@@ -123,51 +122,45 @@ def get_stock_details(symbol):
             'risk_analysis': None
         }
 
-        # Fetch profile data
-        profile_url = f"{BASE_URL}/v3/profile/{symbol}"
-        profile_response = requests.get(profile_url, params={'apikey': FMP_API_KEY})
-        profile_data = profile_response.json()
+        # Fetch stock information using yfinance
+        stock = yf.Ticker(symbol)
 
-        if profile_data and isinstance(profile_data, list) and len(profile_data) > 0:
-            profile = profile_data[0]
+        # Company Profile from yfinance
+        if stock.info:
             stock_details['profile'].update({
-                'name': profile.get('companyName', 'Unknown'),
-                'industry': profile.get('industry', 'Unknown'),
-                'sector': profile.get('sector', 'Unknown'),
-                'country': profile.get('country', 'Unknown'),
-                'website': profile.get('website', '#'),
+                'name': stock.info.get('longName', 'Unknown'),
+                'industry': stock.info.get('industry', 'Unknown'),
+                'sector': stock.info.get('sector', 'Unknown'),
+                'country': stock.info.get('country', 'Unknown'),
+                'website': stock.info.get('website', '#'),
             })
 
-        # Fetch quote data
-        quote_url = f"{BASE_URL}/v3/quote/{symbol}"
-        quote_response = requests.get(quote_url, params={'apikey': FMP_API_KEY})
-        quote_data = quote_response.json()
+        # Current Quote from yfinance
+        current_price = stock.history(period='1d')
+        if not current_price.empty:
+            close_price = current_price['Close'].iloc[-1]
+            previous_close = current_price['Close'].iloc[0]
+            change = close_price - previous_close
+            change_percent = (change / previous_close) * 100
 
-        if quote_data and isinstance(quote_data, list) and len(quote_data) > 0:
-            quote = quote_data[0]
-            stock_details['current_quote'].update({
-                'price': float(quote.get('price', 0.0)),
-                'change': float(quote.get('change', 0.0)),
-                'change_percent': float(quote.get('changesPercentage', 0.0)),
-            })
+            stock_details['current_quote'] = {
+                'price': float(close_price),
+                'change': float(change),
+                'change_percent': float(change_percent)
+            }
 
-        # Fetch historical data for the last year (365 days)
-        historical_url = f"{BASE_URL}/v3/historical-price-full/{symbol}"
-        historical_response = requests.get(historical_url, params={'apikey': FMP_API_KEY, 'timeseries': 365})
-        historical_data = historical_response.json()
-
-        if historical_data and 'historical' in historical_data:
-            # Reverse the historical data so it shows from most recent to oldest
+        # Historical Prices (Last 365 days) from yfinance
+        historical_data = stock.history(period='1y')
+        if not historical_data.empty:
             stock_details['historical_prices'] = [
                 {
-                    'date': entry.get('date', ''),
-                    'close': float(entry.get('close', 0.0))
+                    'date': idx.strftime('%Y-%m-%d'),
+                    'close': float(row['Close'])
                 }
-                for entry in reversed(historical_data['historical'][:365])  # Reverse the data order
-                if entry.get('date') and entry.get('close')
+                for idx, row in historical_data.iterrows()
             ]
 
-        # Fetch news data
+        # News from Financial Modeling Prep (unchanged from original)
         news_url = f"{BASE_URL}/v3/stock_news"
         news_response = requests.get(news_url, params={
             'tickers': symbol,

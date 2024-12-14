@@ -1,0 +1,34 @@
+2024-12-13 14:33:21,198 - werkzeug - WARNING -  * Debugger is active!
+2024-12-13 14:33:21,204 - werkzeug - INFO -  * Debugger PIN: 109-451-313
+2024-12-13 14:33:29,593 - routes.stock_routes - INFO - Searching for stock with query: microsoft
+2024-12-13 14:33:29,593 - routes.stock_routes - INFO - Search attempts: ['MICROSOFT', 'microsoft', 'MSFT', 'Microsoft Corporation']
+2024-12-13 14:33:32,281 - yfinance - ERROR - 404 Client Error: Not Found for url: https://query2.finance.yahoo.com/v10/finance/quoteSummary/MICROSOFT%20CORPORATION?modules=financialData%2CquoteType%2CdefaultKeyStatistics%2CassetProfile%2CsummaryDetail&corsDomain=finance.yahoo.com&formatted=false&symbol=MICROSOFT+CORPORATION&crumb=7VLF.No0CdJ
+2024-12-13 14:33:32,371 - routes.stock_routes - WARNING - No stocks found matching the query: microsoft
+2024-12-13 14:33:32,373 - routes.stock_routes - WARNING - No stocks found for query: microsoft
+2024-12-13 14:33:32,376 - werkzeug - INFO - 127.0.0.1 - - [13/Dec/2024 14:33:32] "[33mGET /stocks/search?name=microsoft HTTP/1.1[0m" 404 -
+2024-12-13 14:33:46,646 - routes.stock_routes - WARNING - Search request with empty query
+2024-12-13 14:33:46,647 - werkzeug - INFO - 127.0.0.1 - - [13/Dec/2024 14:33:46] "[31m[1mGET /stocks/search?symbol=AAPL HTTP/1.1[0m" 400 -
+2024-12-13 14:34:06,054 - routes.stock_routes - INFO - Searching for stock with query: AAPL
+2024-12-13 14:34:06,055 - routes.stock_routes - INFO - Search attempts: ['AAPL', 'aapl', 'Apple Inc.']
+2024-12-13 14:34:07,914 - yfinance - ERROR - 404 Client Error: Not Found for url: https://query2.finance.yahoo.com/v10/finance/quoteSummary/APPLE%20INC.?modules=financialData%2CquoteType%2CdefaultKeyStatistics%2CassetProfile%2CsummaryDetail&corsDomain=finance.yahoo.com&formatted=false&symbol=APPLE+INC.&crumb=7VLF.No0CdJ
+2024-12-13 14:34:07,983 - routes.stock_routes - WARNING - No stocks found matching the query: AAPL
+2024-12-13 14:34:07,984 - routes.stock_routes - WARNING - No stocks found for query: AAPL
+2024-12-13 14:34:07,984 - werkzeug - INFO - 127.0.0.1 - - [13/Dec/2024 14:34:07] "[33mGET /stocks/search?name=AAPL HTTP/1.1[0m" 404 -
+2024-12-13 14:36:45,031 - werkzeug - INFO -  * Detected change in 'C:\\Git_Project\\StockAnalysis\\backend\\routes\\stock_routes.py', reloading
+2024-12-13 14:36:47,414 - werkzeug - WARNING -  * Debugger is active!
+2024-12-13 14:36:47,419 - werkzeug - INFO -  * Debugger PIN: 109-451-313
+2024-12-13 14:36:54,501 - werkzeug - INFO - 127.0.0.1 - - [13/Dec/2024 14:36:54] "OPTIONS /stocks/search?name=app HTTP/1.1" 200 -
+2024-12-13 14:36:54,506 - routes.stock_routes - INFO - Searching for stock with query: app
+2024-12-13 14:36:54,507 - routes.stock_routes - INFO - Search attempts: ['APP', 'app', 'AAPL', 'Apple Inc.', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'NFLX', 'INTC', 'CSCO', 'ADBE', 'CRM', 'PYPL', 'UBER', 'GOOG']
+2024-12-13 14:37:21,147 - yfinance - ERROR - 404 Client Error: Not Found for url: https://query2.finance.yahoo.com/v10/finance/quoteSummary/APPLE%20INC.?modules=financialData%2CquoteType%2CdefaultKeyStatistics%2CassetProfile%2CsummaryDetail&corsDomain=finance.yahoo.com&formatted=false&symbol=APPLE+INC.&crumb=7VLF.No0CdJ
+2024-12-13 14:37:23,975 - routes.stock_routes - WARNING - No stocks found matching the query: app
+2024-12-13 14:37:23,976 - routes.stock_routes - WARNING - No stocks found for query: app
+2024-12-13 14:37:23,977 - werkzeug - INFO - 127.0.0.1 - - [13/Dec/2024 14:37:23] "[33mGET /stocks/search?name=app HTTP/1.1[0m" 404 -
+2024-12-13 14:50:54,311 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2024-12-13 14:50:54,312 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2024-12-13 14:50:54,314 - werkzeug - INFO -  * Restarting with stat
+2024-12-13 14:50:55,542 - werkzeug - WARNING -  * Debugger is active!
+2024-12-13 14:50:55,547 - werkzeug - INFO -  * Debugger PIN: 109-451-313
+2024-12-13 14:53:05,573 - werkzeug - INFO -  * Detected change in 'C:\\Git_Project\\StockAnalysis\\backend\\routes\\stock_routes.py', reloading
+2024-12-13 14:53:06,254 - werkzeug - INFO -  * Restarting with stat

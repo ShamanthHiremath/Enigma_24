@@ -6,6 +6,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import StockAnalysis from "./pages/StockAnalysis";
+import { Toaster } from 'react-hot-toast';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -32,7 +33,15 @@ function App() {
   };
 
   return (
+    
     <Router>
+      <Toaster 
+        position="top-right"
+        toastOptions={{
+          success: { duration: 3000 },
+          error: { duration: 5000 }
+        }} 
+      />
       <div className="bg-gray-900 text-white min-h-screen flex flex-col">
         {/* Navbar */}
         <nav className="p-4 text-white w-full bg-blue-600 sticky top-0 z-50">
@@ -155,7 +164,6 @@ function App() {
             )}
           </div>
         </nav>
-
         {/* Main Content - Flex grow to push footer down */}
         <main className="flex-grow">
           <Routes>
@@ -169,6 +177,16 @@ function App() {
             <Route path="/stocks" element={<StockAnalysis />} />
             <Route path="/stocks/:symbol" element={<StockAnalysis />} />
           </Routes>
+
+          {/* Floating Action Button */}
+            <button
+              onClick={() => window.open("https://llm-rag1.streamlit.app/", "_blank")}
+              className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white w-14 h-14 flex items-center justify-center rounded-full shadow-lg transition duration-300"
+              title="Chat with us"
+            >
+              💬
+            </button>
+          
         </main>
 
         {/* Footer */}
@@ -183,3 +201,4 @@ function App() {
 }
 
 export default App;
+        

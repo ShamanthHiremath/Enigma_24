@@ -1,25 +1,65 @@
 import os
 from flask import Flask
 from flask_cors import CORS
-from routes.auth_routes import auth_bp
-from routes.stock_routes import stock_bp  # Stock routes
-from utils.db import connect_db  # Import the DB connection function
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Import blueprints
+from routes.auth_routes import auth_bp
+from routes.stock_routes import stock_bp
+from routes.market_routes import market_bp
+# In your app.py or similar
+from routes.stock_routes import risk_bp
+# Import database connection
+from utils.db import connect_db
+
+# Load environment variables
 load_dotenv()
 
-# Initialize Flask app
-app = Flask(__name__)
-CORS(app)  # Enable CORS for React frontend
-app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "your_secret_key")  # From .env
+def create_app():
+    # Initialize Flask app
+    app = Flask(__name__)
 
-# Connect to MongoDB
-db = connect_db()
+    # Enable CORS with more specific configuration
+    CORS(app, resources={
+        r"/auth/*": {"origins": "*"},
+        r"/stocks/*": {"origins": "*"},
+        r"/api/market/*": {"origins": "*"}
+    })
 
-# Register Blueprints for different routes
-app.register_blueprint(auth_bp, url_prefix="/auth")
-app.register_blueprint(stock_bp, url_prefix="/stocks")  # Register stock routes
+    # Configure app settings
+    app.config.update(
+        SECRET_KEY=os.getenv("SECRET_KEY", os.urandom(24)),
+        DEBUG=os.getenv("FLASK_DEBUG", "False") == "True"
+    )
+
+    # Connect to database
+    try:
+        db = connect_db()
+        app.config['DB'] = db
+    except Exception as e:
+        print(f"Database connection error: {e}")
+
+    # Register Blueprints
+    app.register_blueprint(auth_bp, url_prefix="/auth")
+    app.register_blueprint(stock_bp, url_prefix="/stocks")
+    app.register_blueprint(market_bp, url_prefix='/api/market')
+    app.register_blueprint(risk_bp, url_prefix='/risk')
+    return app
+
+# Application factory pattern
+app = create_app()
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    # Additional configuration for production vs development
+    if os.getenv("FLASK_ENV", "development") == "production":
+        app.run(
+            host='0.0.0.0', 
+            port=int(os.getenv('PORT', 5000)),
+            debug=False
+        )
+    else:
+        app.run(
+            host='127.0.0.1', 
+            port=5000, 
+            debug=True
+        )

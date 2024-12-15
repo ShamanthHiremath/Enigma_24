@@ -26,11 +26,11 @@ This project leverages AI and advanced analytical techniques to enhance stock tr
 ## Installation
 1. **Clone the Repository**:
    ```bash
-   git clone https://github.com/yourusername/ai-stock-trading.git
+   git clone https://github.com/ShamanthHiremath/Enigma_24.git
    ```
 2. **Navigate to the Project Directory**:
    ```bash
-   cd ai-stock-trading
+   cd 
    ```
 3. **Install Dependencies**:
    ```bash

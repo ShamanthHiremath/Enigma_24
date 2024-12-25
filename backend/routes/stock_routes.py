@@ -1,15 +1,17 @@
 from flask import Blueprint, jsonify, request
 import logging
+import numpy as np
 import requests
 import yfinance as yf
 from datetime import datetime, timedelta
 from .sentiment_analysis import fetch_and_analyze_stock_sentiment
 from .risk_analysis import fetch_risk_results, risk_analysis_model
-from .prediction_analysis import stock_price_predictor
+from .prediction_analysis import stock_price_predictor, train_or_load_model
 
 stock_bp = Blueprint('stock', __name__)
 risk_bp = Blueprint('risk', __name__)
-
+portfolio = ['TCS.NS', 'ITC.NS', 'ZOMATO.NS', 'TATASTEEL.NS', 'INFY.NS', 
+                'RELIANCE.NS', 'HDFCBANK.NS', 'ICICIBANK.NS', 'SBIN.NS']
 @risk_bp.route('/analyze/<symbol>', methods=['GET'])
 def analyze_stock_risk(symbol):
     try:
@@ -17,7 +19,7 @@ def analyze_stock_risk(symbol):
             return jsonify({"error": "Symbol is required"}), 400
         
         # Attempt to get risk analysis results
-        results = risk_analysis_model(symbol)
+        results = fetch_risk_results(symbol, portfolio)
         
         # Check for error in results
         if 'error' in results:
@@ -58,8 +60,103 @@ def analyze_stock_risk(symbol):
                 "latest_close": None
             }
         }), 500
+def prepare_data(df):
+    """Prepare data with technical indicators"""
+    df['sma_20'] = df['Close'].rolling(window=20).mean()
+    df['sma_50'] = df['Close'].rolling(window=50).mean()
+    df['ema_20'] = df['Close'].ewm(span=20, adjust=False).mean()
+    df['ema_50'] = df['Close'].ewm(span=50, adjust=False).mean()
+    
+    # MACD
+    df['macd'] = df['Close'].ewm(span=12, adjust=False).mean() - df['Close'].ewm(span=26, adjust=False).mean()
+    df['macd_signal'] = df['macd'].ewm(span=9, adjust=False).mean()
+    df['macd_value'] = df['macd'] - df['macd_signal']
+    
+    # RSI
+    delta = df['Close'].diff(1)
+    gain = delta.where(delta > 0, 0)
+    loss = -delta.where(delta < 0, 0)
+    avg_gain = gain.rolling(window=14, min_periods=1).mean()
+    avg_loss = loss.rolling(window=14, min_periods=1).mean()
+    rs = avg_gain / avg_loss
+    df['rsi_14'] = 100 - (100 / (1 + rs))
+    
+    return df
 
+def stock_price_predictor(symbol, start_date, end_date):
+    try:
+        # Get current price data
+        stock = yf.Ticker(symbol)
+        current_data = stock.history(period='1d')
+        
+        if current_data.empty:
+            logging.error(f"No current data found for {symbol}")
+            return {'error': 'Could not fetch current stock data'}
+        
+        last_close_price = float(current_data['Close'].iloc[-1])
+        
+        # Train/load model and make prediction
+        try:
+            model, scaler = train_or_load_model(symbol, start_date, end_date)
+        except Exception as e:
+            logging.error(f"Model training error for {symbol}: {str(e)}")
+            return {'error': f"Failed to train model: {str(e)}"}
+        
+        # Prepare latest data for prediction
+        try:
+            df = yf.download(symbol, start=start_date - timedelta(days=100), end=end_date)
+            if df.empty:
+                return {'error': 'Insufficient historical data for prediction'}
+            
+            df = prepare_data(df)
+            df.dropna(inplace=True)
+            
+            if len(df) < 60:  # Check if we have enough data points
+                return {'error': 'Insufficient data points for prediction'}
+            
+            features = ['Open', 'High', 'Low', 'Volume', 'sma_20', 'sma_50', 
+                       'ema_20', 'ema_50', 'macd_value', 'rsi_14']
+            
+            # Verify all features exist
+            missing_features = [f for f in features if f not in df.columns]
+            if missing_features:
+                return {'error': f'Missing features: {missing_features}'}
+            
+            # Scale and reshape latest data
+            latest_data = scaler.transform(df[features].tail(60))
+            latest_data = latest_data.reshape(1, 60, len(features))
+            
+            # Make prediction
+            predicted_price = float(model.predict(latest_data)[0][0])
+            
+            # Calculate metrics
+            price_change = predicted_price - last_close_price
+            price_change_percent = (price_change / last_close_price) * 100
+            
+            # Calculate confidence based on recent prediction accuracy
+            recent_predictions = model.predict(latest_data[-10:])
+            recent_actuals = df['Close'].tail(10).values
+            prediction_errors = np.abs((recent_predictions - recent_actuals) / recent_actuals)
+            confidence = max(min(100 * (1 - np.mean(prediction_errors)), 95), 50)
+            
+            return {
+                'predicted_price': round(predicted_price, 2),
+                'last_close_price': round(last_close_price, 2),
+                'price_change': round(price_change, 2),
+                'price_change_percent': round(price_change_percent, 2),
+                'prediction_confidence': round(confidence, 1),
+                'prediction_direction': 'Bullish' if price_change > 0 else 'Bearish'
+            }
+            
+        except Exception as e:
+            logging.error(f"Data preparation error for {symbol}: {str(e)}")
+            return {'error': f"Failed to prepare prediction data: {str(e)}"}
+        
+    except Exception as e:
+        logging.error(f"Price prediction error for {symbol}: {str(e)}")
+        return {'error': f"Failed to predict price: {str(e)}"}
 # Financial Modeling Prep API Configuration
+#FMP_API_KEY = 'GbXRY0QJF2ZAzqNqFo9G9tmInkDmNMz9'
 FMP_API_KEY = 'GbXRY0QJF2ZAzqNqFo9G9tmInkDmNMz9'
 BASE_URL = 'https://financialmodelingprep.com/api'
 

@@ -1,0 +1,12 @@
+{
+    "include": [
+        "."
+    ],
+    "exclude": [
+        "**/node_modules",
+        "**/__pycache__"
+    ],
+    "reportMissingImports": false,
+    "pythonVersion": "3.10",
+    "pythonPlatform": "Windows"
+}

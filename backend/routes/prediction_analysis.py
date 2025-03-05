@@ -42,11 +42,33 @@ def train_or_load_model(symbol, start_date, end_date, sequence_length=60):
         model_path = os.path.join(model_dir, f"{symbol}_model.h5")
         scaler_path = os.path.join(model_dir, f"{symbol}_scaler.pkl")
         
+        # Force retraining if there's a model mismatch
+        force_retrain = False
+        
         # Check if model exists and is recent
         if os.path.exists(model_path) and os.path.exists(scaler_path):
-            model = load_model(model_path)
-            scaler = joblib.load(scaler_path)
-            return model, scaler
+            try:
+                # Try to load model to check if it's compatible
+                model = load_model(model_path)
+                scaler = joblib.load(scaler_path)
+                
+                # Check first layer input shape to ensure compatibility
+                input_shape = model.layers[0].input_shape
+                if input_shape[1] != sequence_length:
+                    logging.info(f"Model expects sequence length {input_shape[1]}, but {sequence_length} was requested. Retraining...")
+                    force_retrain = True
+                else:
+                    return model, scaler
+            except Exception as e:
+                logging.error(f"Error loading model: {str(e)}. Will retrain.")
+                force_retrain = True
+        
+        if force_retrain:
+            # Remove existing model files
+            if os.path.exists(model_path):
+                os.remove(model_path)
+            if os.path.exists(scaler_path):
+                os.remove(scaler_path)
         
         # Fetch and prepare data
         extended_start_date = start_date - timedelta(days=365)
@@ -109,6 +131,9 @@ def train_or_load_model(symbol, start_date, end_date, sequence_length=60):
 def stock_price_predictor(symbol, start_date, end_date):
     """Predict the next day's stock price"""
     try:
+        # Use consistent sequence length throughout
+        sequence_length = 60
+        
         # Get current price data
         stock = yf.Ticker(symbol)
         current_data = stock.history(period='1d')
@@ -118,8 +143,8 @@ def stock_price_predictor(symbol, start_date, end_date):
         
         last_close_price = float(current_data['Close'].iloc[-1])
         
-        # Train/load model and make prediction
-        model, scaler = train_or_load_model(symbol, start_date, end_date)
+        # Train/load model and make prediction with explicit sequence length
+        model, scaler = train_or_load_model(symbol, start_date, end_date, sequence_length)
         
         # Prepare latest data
         df = yf.download(symbol, start=start_date - timedelta(days=100), end=end_date)
@@ -129,11 +154,13 @@ def stock_price_predictor(symbol, start_date, end_date):
         features = ['Open', 'High', 'Low', 'Volume', 'sma_20', 'sma_50', 
                     'ema_20', 'ema_50', 'macd_value', 'rsi_14']
         
-        if len(df) < 60:
-            return {'error': 'Not enough data to make predictions'}
+        if len(df) < sequence_length:
+            return {'error': f'Not enough data to make predictions. Need at least {sequence_length} data points.'}
         
-        latest_data = scaler.transform(df[features].tail(60))
-        latest_data = latest_data.reshape(1, 60, len(features))
+        # Make sure to use the same sequence length as in the training
+        latest_data = df[features].tail(sequence_length).values
+        latest_data = scaler.transform(latest_data)
+        latest_data = latest_data.reshape(1, sequence_length, len(features))
         
         predicted_price = float(model.predict(latest_data)[0][0])
         
@@ -157,6 +184,15 @@ if __name__ == "__main__":
     symbol = 'AAPL'
     start_date = datetime(2020, 1, 1)
     end_date = datetime.now()
+    
+    # Delete existing model to force retraining
+    model_path = os.path.join("models/", f"{symbol}_model.h5")
+    scaler_path = os.path.join("models/", f"{symbol}_scaler.pkl")
+    
+    if os.path.exists(model_path):
+        os.remove(model_path)
+    if os.path.exists(scaler_path):
+        os.remove(scaler_path)
     
     result = stock_price_predictor(symbol, start_date, end_date)
     print(result)

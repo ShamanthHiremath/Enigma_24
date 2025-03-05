@@ -3,7 +3,6 @@ from flask import Flask
 from flask_cors import CORS
 from dotenv import load_dotenv
 #.\.venv\Scripts\activate
-# Import blueprints
 from routes.auth_routes import auth_bp
 from routes.stock_routes import stock_bp
 from routes.market_routes import market_bp

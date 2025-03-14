@@ -5,6 +5,8 @@
 ## Project Overview
 This project leverages AI and advanced analytical techniques to enhance stock trading strategies for Indian stocks listed on NSE and BSE. It combines sentiment analysis, price prediction, technical indicators, and chatbot recommendations to enable informed intraday and swing trading decisions.
 
+[![Prototype Video](https://github.com/ShamanthHiremath/Enigma_24/blob/main/link%20files/prototypeVideo.gif)](https://github.com/ShamanthHiremath/Enigma_24/blob/main/link%20files/prototypeVideo.mp4)
+
 ## Features
 
 ### Sentiment Analysis
